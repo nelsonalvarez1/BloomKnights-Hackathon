@@ -182,14 +182,6 @@ JETS = {
     3: [],
 }
 
-<<<<<<< HEAD
-# signal_date = when our leading indicator (the import surge) crossed threshold.
-# It sits ~1-2 weeks BEFORE each company's next real material 8-K, so the
-# lead-time claim holds against SEC's live feed. These cached filings mirror
-# the real material 8-Ks (used only if the live pull fails).
-=======
-# Latest inbound shipment per store: carrier the retailer uses, the most
-# recent ship to arrive, its port, and what's on it (container counts).
 SHIPMENTS = {
     1: ("Maersk", "Maersk Kensington", "JAXPORT — Jacksonville, FL", "2026-07-08",
         [("General merchandise", 64), ("Grocery & consumables", 38), ("Seasonal & outdoor", 21)]),
@@ -199,7 +191,6 @@ SHIPMENTS = {
         [("Apparel", 33), ("Home goods", 29), ("Electronics", 12)]),
 }
 
->>>>>>> ed0ce1cd15ffa5c76fae701222572bf99264cc5a
 FILINGS = {
     1: {
         "signal_date": "2026-05-12",
