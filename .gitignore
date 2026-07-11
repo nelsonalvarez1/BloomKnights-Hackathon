@@ -220,3 +220,6 @@ __marimo__/
 # Node / frontend
 node_modules/
 frontend/dist/
+
+# SQLite (created at runtime)
+*.db
