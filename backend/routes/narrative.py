@@ -24,7 +24,7 @@ from routes.satellite import get_satellite
 from routes.supply import get_supply
 from routes.trends import get_trends
 from schemas import NarrativeRequest, NarrativeResponse
-from fusion import compute_activity_score
+from fusion import compute_activity_score, interpret_combined
 
 router = APIRouter()
 
@@ -150,11 +150,13 @@ def _render_prompt(p: dict) -> str:
 
 
 def _fallback_thesis(p: dict) -> str:
-    imp, sat, trends, jets, edgar = (
-        p["imports"], p["satellite"], p["trends"], p["jets"], p["edgar"]
-    )
+    imp, sat, trends, edgar = p["imports"], p["satellite"], p["trends"], p["edgar"]
     store = p["store"]
-    parts = []
+    score = _score(p)
+    parts = [
+        f"Fused activity score: {score.score} of 1.0 ({score.confidence} confidence) — "
+        f"{interpret_combined(score.import_signal, score.satellite_signal)}."
+    ]
 
     if imp.surge_detected:
         parts.append(
@@ -187,21 +189,6 @@ def _fallback_thesis(p: dict) -> str:
             f"so the read leans on the supply and activity signals."
         )
 
-    if jets.proximity_flag:
-        e = jets.events[0]
-        parts.append(
-            f"Secondary intent flag: {e.tail_number} ({e.operator}) logged a {e.event_type} "
-            f"at {e.airport}, {e.distance_miles} mi from the site, on {e.timestamp[:10]}."
-        )
-
-    supply = p["supply"]
-    if supply is not None:
-        parts.append(
-            f"On the supply side, {supply.ship_name} ({supply.carrier}) docked at "
-            f"{supply.port} on {supply.arrived_at} carrying {supply.total_containers} "
-            f"containers for the retailer — inbound inventory consistent with the "
-            f"activity the other signals show."
-        )
     parts.append(
         f"The combined signal fired on {edgar.signal_date}; the first related filing "
         f"({edgar.filings[0].form_type}) hit EDGAR {edgar.lead_days} days later — the "
