@@ -30,3 +30,34 @@ def fetch_interest(query: str, geo: str, timeframe: str = DEFAULT_TIMEFRAME) -> 
     if len(points) < 3:
         raise RuntimeError(f"insufficient Trends data for {query!r}")
     return points
+
+
+def fetch_interest_batch(queries: list[str], geo: str,
+                         timeframe: str = DEFAULT_TIMEFRAME) -> dict:
+    """Pull up to 5 queries in ONE request -> {query: [(date, interest), ...]}.
+
+    Batching is how we stay under pytrends' rate limit (22 companies = ~5 calls
+    instead of 22). Trends normalizes the batch 0-100 relative to each other,
+    but our score is a per-company z-score anomaly (scale-invariant), so the
+    relative scaling doesn't change any company's score. Queries with too few
+    points are omitted from the result rather than raising.
+    """
+    if not 1 <= len(queries) <= 5:
+        raise ValueError("pytrends allows 1-5 keywords per request")
+    from pytrends.request import TrendReq
+
+    pytrends = TrendReq(hl="en-US", tz=360)
+    pytrends.build_payload(kw_list=queries, timeframe=timeframe, geo=geo)
+    df = pytrends.interest_over_time()
+    if df.empty:
+        raise RuntimeError(f"no Trends data for batch {queries}")
+
+    out = {}
+    for q in queries:
+        if q not in df:
+            continue
+        weekly = df[q].resample("W").mean().round().astype(int)
+        pts = [(idx.date().isoformat(), int(v)) for idx, v in weekly.items() if v > 0]
+        if len(pts) >= 3:
+            out[q] = pts
+    return out

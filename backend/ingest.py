@@ -139,6 +139,30 @@ def replace_filings(store_id, signal_date, filings):
         conn.close()
 
 
+def write_score(store_id, score, confidence, import_mag, satellite_mag,
+                trend_mag, interpretation, computed_at):
+    """Persist a computed activity score for a store (upsert into `scores`).
+
+    Called by populate.py after running fusion.compute_activity_score, so the
+    leaderboard reads pre-computed scores instead of recomputing 25 stores
+    (with live pulls) on every request.
+    """
+    init_db()
+    conn = get_conn()
+    try:
+        conn.execute("DELETE FROM scores WHERE store_id = ?", (store_id,))
+        conn.execute(
+            "INSERT INTO scores (store_id, score, confidence, import_mag,"
+            " satellite_mag, trend_mag, interpretation, computed_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (store_id, score, confidence, import_mag, satellite_mag,
+             trend_mag, interpretation, computed_at),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def reset():
     """Wipe everything back to the demo seed (deletes perigee.db, reseeds)."""
     DB_PATH.unlink(missing_ok=True)

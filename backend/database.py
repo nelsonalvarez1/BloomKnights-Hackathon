@@ -91,6 +91,17 @@ CREATE TABLE IF NOT EXISTS signals (
     store_id INTEGER PRIMARY KEY REFERENCES stores(id),
     signal_date TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS scores (
+    store_id INTEGER PRIMARY KEY REFERENCES stores(id),
+    score REAL NOT NULL,
+    confidence TEXT NOT NULL,
+    import_mag REAL,
+    satellite_mag REAL,
+    trend_mag REAL,
+    interpretation TEXT NOT NULL,
+    computed_at TEXT NOT NULL
+);
 """
 
 # ---- Demo seed data ---------------------------------------------------------
@@ -271,6 +282,14 @@ def init_db() -> None:
                 "INSERT INTO stores VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (s["id"], s["name"], s["company"], s["ticker"], s["cik"],
                  s["city"], s["state"], s["lat"], s["lon"]),
+            )
+        # Lite-tier companies (Trends + EDGAR only, no satellite/imports).
+        # National-level rows; lat/lon 0 (no map pin) until HQ coords are added.
+        for s in LITE_TIER:
+            conn.execute(
+                "INSERT INTO stores VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (s["id"], s["company"], s["company"], s["ticker"], s["cik"],
+                 "National", "US", 0.0, 0.0),
             )
         for store_id, snaps in SATELLITE.items():
             for kind, captured_at, image_url, car_count in snaps:

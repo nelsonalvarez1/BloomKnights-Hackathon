@@ -10,7 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import get_conn, init_db
 
-from routes import edgar, imports, narrative, price, satellite, score, supply, trends
+from routes import (
+    edgar, imports, leaderboard, narrative, price, satellite, score, supply, trends,
+)
 
 from schemas import Store
 
@@ -59,3 +61,4 @@ app.include_router(price.router)
 app.include_router(score.router)
 app.include_router(edgar.router)
 app.include_router(narrative.router)
+app.include_router(leaderboard.router)

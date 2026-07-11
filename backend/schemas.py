@@ -154,3 +154,18 @@ class ScoreResponse(BaseModel):
     directions: dict[str, int]           # -1 unusual drop / 0 normal / +1 unusual rise
     weights: dict[str, float]            # effective weights actually applied
     interpretation: str                  # combined physical-evidence read
+
+
+# ---- /api/leaderboard ------------------------------------------------------
+# All tracked companies ranked by their persisted activity score (computed by
+# populate.py). "hero" tier has full signals; "lite" tier is Trends+EDGAR only.
+
+class LeaderboardEntry(BaseModel):
+    store_id: int
+    company: str
+    ticker: str
+    tier: str            # "hero" | "lite"
+    score: float
+    confidence: str
+    interpretation: str
+    computed_at: str
