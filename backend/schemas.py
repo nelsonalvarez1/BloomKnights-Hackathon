@@ -26,12 +26,33 @@ class Store(BaseModel):
 class SatelliteSnapshot(BaseModel):
     captured_at: str  # ISO date
     image_url: str    # served from frontend/public/samples/
+    car_count: int    # vehicles detected by YOLOv8 in the lot (ml/detect_satellite.py)
 
 
 class SatelliteResponse(BaseModel):
     store_id: int
     before: SatelliteSnapshot
     after: SatelliteSnapshot
+    count_change_pct: float  # (after - before) / before — the activity delta
+
+
+# ---- /api/imports ----------------------------------------------------------
+# US customs bill-of-lading (ImportGenius/Panjiva-style) — the supply-side
+# signal. Container inflow leads on-the-ground activity, which leads demand.
+
+class ImportPoint(BaseModel):
+    month: str        # "2026-05"
+    containers: int   # inbound container count (TEU-equivalent) that month
+
+
+class ImportsResponse(BaseModel):
+    store_id: int
+    consignee: str        # matched importer-of-record, e.g. "WALMART INC"
+    supplier: str         # top foreign supplier on the manifests
+    origin_country: str   # e.g. "China"
+    points: list[ImportPoint]
+    surge_detected: bool
+    surge_pct: float | None = None  # recent months vs. baseline, e.g. 1.14 = +114%
 
 
 # ---- /api/trends -----------------------------------------------------------
@@ -99,3 +120,15 @@ class NarrativeResponse(BaseModel):
     confidence: str  # "low" | "medium" | "high"
     generated_at: str
     sources: list[str]  # which signals the thesis cites
+
+
+# ---- /api/score ------------------------------------------------------------
+# The fused activity score — the hero number. Combines the supply→activity→
+# demand funnel (imports + satellite + trends) into one 0-1 score.
+
+class ScoreResponse(BaseModel):
+    store_id: int
+    score: float        # 0.0 - 1.0
+    confidence: str      # "low" | "medium" | "high"
+    components: dict[str, float | None]  # {"imports":_, "satellite":_, "trend":_}
+    weights: dict[str, float]            # effective weights actually applied

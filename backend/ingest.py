@@ -20,12 +20,13 @@ to wipe back to the demo seed.
 """
 
 from database import DB_PATH, get_conn, init_db
-from schemas import Filing, JetEvent, TrendPoint
+from schemas import Filing, ImportPoint, JetEvent, TrendPoint
 
 
-def replace_satellite(store_id, kind, captured_at, image_url):
+def replace_satellite(store_id, kind, captured_at, image_url, car_count=0):
     """Replace one snapshot (kind: 'before' or 'after') for a store.
 
+    car_count is the YOLOv8 vehicle count from ml/detect_satellite.py.
     Remember to put the actual image file at frontend/public/<image_url>.
     """
     if kind not in ("before", "after"):
@@ -38,9 +39,33 @@ def replace_satellite(store_id, kind, captured_at, image_url):
             (store_id, kind),
         )
         conn.execute(
-            "INSERT INTO satellite_snapshots (store_id, kind, captured_at, image_url)"
-            " VALUES (?, ?, ?, ?)",
-            (store_id, kind, captured_at, image_url),
+            "INSERT INTO satellite_snapshots (store_id, kind, captured_at, image_url,"
+            " car_count) VALUES (?, ?, ?, ?, ?)",
+            (store_id, kind, captured_at, image_url, car_count),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def replace_imports(store_id, consignee, supplier, origin_country, points):
+    """Replace all customs-import data for a store.
+
+    points: list of (month, containers) tuples, e.g. [("2026-06", 330), ...].
+    """
+    validated = [ImportPoint(month=m, containers=c) for m, c in points]
+    init_db()
+    conn = get_conn()
+    try:
+        conn.execute("DELETE FROM import_points WHERE store_id = ?", (store_id,))
+        conn.execute("DELETE FROM import_meta WHERE store_id = ?", (store_id,))
+        conn.execute(
+            "INSERT INTO import_meta VALUES (?, ?, ?, ?)",
+            (store_id, consignee, supplier, origin_country),
+        )
+        conn.executemany(
+            "INSERT INTO import_points (store_id, month, containers) VALUES (?, ?, ?)",
+            [(store_id, p.month, p.containers) for p in validated],
         )
         conn.commit()
     finally:

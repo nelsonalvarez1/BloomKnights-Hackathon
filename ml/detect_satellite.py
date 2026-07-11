@@ -139,6 +139,7 @@ def main():
             ingest.replace_satellite(
                 store_id=d["store_id"], kind=d["kind"],
                 captured_at=d["captured_at"], image_url=d["image_url"],
+                car_count=d["car_count"],
             )
         print("ingested snapshot rows into perigee.db")
 

@@ -16,6 +16,7 @@ def _snapshot(row) -> SatelliteSnapshot:
     return SatelliteSnapshot(
         captured_at=row["captured_at"],
         image_url=row["image_url"],
+        car_count=row["car_count"],
     )
 
 
@@ -34,8 +35,13 @@ def get_satellite(store_id: int):
     if "before" not in by_kind or "after" not in by_kind:
         raise HTTPException(404, f"No satellite data for store {store_id}")
 
+    before = _snapshot(by_kind["before"])
+    after = _snapshot(by_kind["after"])
+    change = (after.car_count - before.car_count) / before.car_count if before.car_count else 0.0
+
     return SatelliteResponse(
         store_id=store_id,
-        before=_snapshot(by_kind["before"]),
-        after=_snapshot(by_kind["after"]),
+        before=before,
+        after=after,
+        count_change_pct=round(change, 3),
     )
