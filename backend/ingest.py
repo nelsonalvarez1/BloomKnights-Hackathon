@@ -22,7 +22,7 @@ to wipe back to the demo seed.
 import json
 
 from database import DB_PATH, get_conn, init_db
-from schemas import Filing, ImportPoint, JetEvent, TrendPoint
+from schemas import Filing, ImportPoint, JetEvent, ShipmentItem, TrendPoint
 
 
 

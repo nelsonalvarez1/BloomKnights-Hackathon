@@ -236,7 +236,7 @@ def generate_narrative(req: NarrativeRequest):
         sources.insert(-1, "jets")
     if payload["supply"] is not None:
         sources.insert(-1, "supply")
-
+    sources.append("edgar")  # validation layer — the thesis always closes on it
 
     api_key = os.environ.get("GEMINI_API_KEY")
     thesis = None
