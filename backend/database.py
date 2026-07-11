@@ -6,10 +6,18 @@ rows with real pipeline output as their pieces come online; the shapes here
 match schemas.py exactly.
 """
 
+import os
 import sqlite3
+import tempfile
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "perigee.db"
+# On Vercel (and most serverless hosts) the app directory is read-only — only
+# the temp dir is writable. Detect that and put the runtime db there. Locally,
+# keep it next to the code so `reset()` and manual inspection are easy.
+if os.environ.get("VERCEL") or os.environ.get("PERIGEE_DB_TMP"):
+    DB_PATH = Path(tempfile.gettempdir()) / "perigee.db"
+else:
+    DB_PATH = Path(__file__).parent / "perigee.db"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS stores (
@@ -160,7 +168,19 @@ FILINGS = {
 }
 
 
-def get_conn() -> sqlite3.Connection:
+def get_conn():
+    """Return a db connection.
+
+    Uses Turso (hosted libSQL) when TURSO_DATABASE_URL + TURSO_AUTH_TOKEN are
+    set — that's how data persists across Vercel cold starts. Otherwise falls
+    back to a local SQLite file, so local dev needs no credentials.
+    """
+    url = os.environ.get("TURSO_DATABASE_URL")
+    token = os.environ.get("TURSO_AUTH_TOKEN")
+    if url and token:
+        from turso import TursoConnection
+
+        return TursoConnection(url, token)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -174,8 +194,9 @@ def init_db() -> None:
             return
         for s in STORES:
             conn.execute(
-                "INSERT INTO stores VALUES (:id, :name, :company, :ticker, :cik, :city, :state, :lat, :lon)",
-                s,
+                "INSERT INTO stores VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (s["id"], s["name"], s["company"], s["ticker"], s["cik"],
+                 s["city"], s["state"], s["lat"], s["lon"]),
             )
         for store_id, snaps in SATELLITE.items():
             for kind, captured_at, image_url in snaps:
