@@ -106,6 +106,7 @@ class EdgarResponse(BaseModel):
     signal_date: str      # day 0 — when our combined signal fired
     filings: list[Filing]
     lead_days: int        # days between signal_date and the first filing
+    source: str = "cached"  # "live" = pulled from data.sec.gov this request
 
 
 # ---- /api/narrative --------------------------------------------------------

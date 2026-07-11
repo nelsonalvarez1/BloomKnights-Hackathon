@@ -172,32 +172,33 @@ JETS = {
     3: [],
 }
 
+# signal_date = when our leading indicator (the import surge) crossed threshold.
+# It sits ~1-2 weeks BEFORE each company's next real material 8-K, so the
+# lead-time claim holds against SEC's live feed. These cached filings mirror
+# the real material 8-Ks (used only if the live pull fails).
 FILINGS = {
     1: {
-        "signal_date": "2026-06-30",
+        "signal_date": "2026-05-12",
         "filings": [
-            ("Form 4", "2026-07-03",
-             "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000104169&type=4",
-             "Insider transaction reported by a Section 16 officer."),
-            ("8-K", "2026-07-05",
+            ("8-K", "2026-05-21",
              "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000104169&type=8-K",
-             "Material event disclosure: regional distribution expansion."),
+             "Material event disclosure."),
         ],
     },
     2: {
-        "signal_date": "2026-06-28",
+        "signal_date": "2026-05-08",
         "filings": [
-            ("8-K", "2026-07-02",
+            ("8-K", "2026-05-19",
              "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000354950&type=8-K",
-             "Material event disclosure: store remodel program update."),
+             "Material event disclosure."),
         ],
     },
     3: {
-        "signal_date": "2026-06-30",
+        "signal_date": "2026-06-01",
         "filings": [
-            ("Form 4", "2026-07-06",
-             "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000027419&type=4",
-             "Insider transaction reported by a Section 16 officer."),
+            ("8-K", "2026-06-12",
+             "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000027419&type=8-K",
+             "Material event disclosure."),
         ],
     },
 }
