@@ -17,6 +17,7 @@ from routes.jets import get_jets
 from routes.satellite import get_satellite
 from routes.trends import get_trends
 from schemas import NarrativeRequest, NarrativeResponse
+from fusion import compute_activity_score
 
 router = APIRouter()
 
@@ -93,11 +94,7 @@ def _render_prompt(p: dict) -> str:
 
 
 def _confidence(p: dict) -> str:
-    fired = sum([
-        p["trends"].spike_detected,
-        p["jets"].proximity_flag,
-    ])
-    return {0: "low", 1: "medium", 2: "high"}[fired]
+    return compute_activity_score(p["trends"], p["jets"]).confidence
 
 
 def _fallback_thesis(p: dict) -> str:
