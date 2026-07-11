@@ -120,13 +120,7 @@ CREATE TABLE IF NOT EXISTS meta (
 # Bump this whenever the seed data or schema changes. A mismatch with the
 # version stamped in `meta` makes init_db() drop everything and reseed — this
 # is the ONLY way production Turso ever picks up new seed data.
-SEED_VERSION = "2026-07-11.4"
-
-# Drop order matters on engines that enforce FKs: children before parents.
-_TABLES = [
-    "scores", "signals", "filings", "shipments", "trend_points", "trend_meta",
-    "import_points", "import_meta", "satellite_snapshots", "stores", "meta",
-]
+SEED_VERSION = "2026-07-11.5"
 
 # ---- Demo seed data ---------------------------------------------------------
 # Real companies / CIKs so the EDGAR links resolve; the activity numbers are
@@ -415,9 +409,24 @@ def _seed_version(conn) -> str | None:
 
 
 def wipe(conn) -> None:
-    """Drop every Perigee table. Works on local SQLite AND Turso — this is how
-    a stale production seed gets cleared (ingest.reset() uses it too)."""
-    for table in _TABLES:
+    """Drop every table. Works on local SQLite AND Turso — this is how a stale
+    production seed gets cleared (ingest.reset() uses it too).
+
+    Tables are discovered from sqlite_master rather than a hardcoded list, so
+    ORPHAN tables left by an older schema version (e.g. jet_events) get dropped
+    too. Every child table's FK points at stores(id), so stores is dropped LAST;
+    otherwise a lingering child — even one we no longer define — blocks the drop
+    with 'FOREIGN KEY constraint failed' on engines that enforce FKs (Turso).
+    That exact failure once half-wiped production Turso and wedged init_db in a
+    crash loop, so discovery must not depend on a hardcoded table list."""
+    rows = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+    ).fetchall()
+    names = [r[0] for r in rows]
+    ordered = [n for n in names if n != "stores"]
+    if "stores" in names:
+        ordered.append("stores")  # parent last — all FKs reference it
+    for table in ordered:
         conn.execute(f"DROP TABLE IF EXISTS {table}")
     conn.commit()
 
