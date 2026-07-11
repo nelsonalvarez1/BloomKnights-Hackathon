@@ -19,7 +19,6 @@ from fastapi import APIRouter, HTTPException
 from database import get_conn
 from routes.edgar import get_edgar
 from routes.imports import get_imports
-from routes.jets import get_jets
 from routes.satellite import get_satellite
 from routes.supply import get_supply
 from routes.trends import get_trends
@@ -55,9 +54,8 @@ DEMAND — Google Search Trends ("{query}", {region}):
 - Recent weekly interest: {trend_tail}
 - Spike detected: {spike}
 
-SECONDARY — Corporate jet activity (insider-intent flag, not part of the score):
-{jet_lines}
-
+SUPPLY DETAIL — Latest inbound shipment (customs/port record):
+{supply_lines}
 
 VALIDATION — SEC EDGAR:
 
@@ -88,7 +86,6 @@ def _build_payload(store_id: int) -> dict:
         "imports": get_imports(store_id),
         "satellite": get_satellite(store_id),
         "trends": get_trends(store_id),
-        "jets": get_jets(store_id),
         "supply": supply,
         "edgar": get_edgar(store_id),
     }
@@ -107,15 +104,10 @@ def _pct(x: float) -> str:
 
 
 def _render_prompt(p: dict) -> str:
-    imp, sat, trends, jets, edgar = (
-        p["imports"], p["satellite"], p["trends"], p["jets"], p["edgar"]
+    imp, sat, trends, edgar = (
+        p["imports"], p["satellite"], p["trends"], p["edgar"]
     )
     score = _score(p)
-    jet_lines = "\n".join(
-        f"- {e.tail_number} ({e.operator}) {e.event_type} at {e.airport}, "
-        f"{e.distance_miles} mi from store, {e.timestamp}"
-        for e in jets.events
-    ) or "- No jet activity in window"
     filing_lines = "; ".join(f"{f.form_type} on {f.filed_at}" for f in edgar.filings)
     trend_tail = ", ".join(f"{pt.date}: {pt.interest}" for pt in trends.points[-4:])
     import_tail = ", ".join(f"{pt.month}: {pt.containers}" for pt in imp.points[-4:])
@@ -144,7 +136,7 @@ def _render_prompt(p: dict) -> str:
         count_change=f"{_pct(sat.count_change_pct)} vehicles",
         query=trends.query, region=trends.region,
         trend_tail=trend_tail, spike=trends.spike_detected,
-        jet_lines=jet_lines, supply_lines=supply_lines, signal_date=edgar.signal_date,
+        supply_lines=supply_lines, signal_date=edgar.signal_date,
         filing_lines=filing_lines, lead_days=edgar.lead_days,
     )
 
@@ -212,17 +204,15 @@ def _call_gemini(prompt: str, api_key: str) -> str:
 def generate_narrative(req: NarrativeRequest):
     payload = _build_payload(req.store_id)
 
-    # Sources in funnel order; jets only if there was activity (secondary).
+    # Sources in funnel order; edgar always closes as the validation layer.
     sources = []
     if payload["imports"].points:
         sources.append("imports")
     sources.append("satellite")
     if payload["trends"].points:
         sources.append("trends")
-    if payload["jets"].events:
-        sources.insert(-1, "jets")
     if payload["supply"] is not None:
-        sources.insert(-1, "supply")
+        sources.append("supply")
     sources.append("edgar")  # validation layer — the thesis always closes on it
 
     api_key = os.environ.get("GEMINI_API_KEY")

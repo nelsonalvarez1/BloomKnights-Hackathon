@@ -69,25 +69,7 @@ class TrendsResponse(BaseModel):
     points: list[TrendPoint]
     spike_detected: bool
     spike_date: str | None = None
-
-
-# ---- /api/jets -------------------------------------------------------------
-
-class JetEvent(BaseModel):
-    tail_number: str
-    operator: str
-    event_type: str  # "landing" | "proximity"
-    airport: str
-    distance_miles: float  # distance from the store
-    timestamp: str
-    lat: float
-    lon: float
-
-
-class JetsResponse(BaseModel):
-    store_id: int
-    events: list[JetEvent]
-    proximity_flag: bool
+    source: str = "cached"  # "live" = pulled from Google Trends this request
 
 
 # ---- /api/supply -----------------------------------------------------------
@@ -105,6 +87,26 @@ class SupplyResponse(BaseModel):
     arrived_at: str   # ISO date
     items: list[ShipmentItem]
     total_containers: int
+
+
+# ---- /api/price ------------------------------------------------------------
+# Market context — the stock the signal is about. Current quote is pulled LIVE
+# from Finnhub; the daily history is the cached move for the overlay chart.
+
+class PricePoint(BaseModel):
+    date: str    # ISO date
+    close: float
+
+
+class PriceResponse(BaseModel):
+    store_id: int
+    ticker: str
+    current: float
+    change: float          # vs. previous close, absolute
+    percent_change: float  # vs. previous close, %
+    prev_close: float
+    history: list[PricePoint]  # recent daily closes (for the timeline overlay)
+    source: str            # "live" = current quote from Finnhub this request
 
 
 # ---- /api/edgar ------------------------------------------------------------
@@ -146,7 +148,9 @@ class NarrativeResponse(BaseModel):
 
 class ScoreResponse(BaseModel):
     store_id: int
-    score: float        # 0.0 - 1.0
+    score: float        # 0.0 - 1.0, anomaly magnitude
     confidence: str      # "low" | "medium" | "high"
-    components: dict[str, float | None]  # {"imports":_, "satellite":_, "trend":_}
+    components: dict[str, float]         # anomaly magnitude per signal
+    directions: dict[str, int]           # -1 unusual drop / 0 normal / +1 unusual rise
     weights: dict[str, float]            # effective weights actually applied
+    interpretation: str                  # combined physical-evidence read

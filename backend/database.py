@@ -69,19 +69,6 @@ CREATE TABLE IF NOT EXISTS trend_meta (
     region TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS jet_events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    store_id INTEGER NOT NULL REFERENCES stores(id),
-    tail_number TEXT NOT NULL,
-    operator TEXT NOT NULL,
-    event_type TEXT NOT NULL,
-    airport TEXT NOT NULL,
-    distance_miles REAL NOT NULL,
-    timestamp TEXT NOT NULL,
-    lat REAL NOT NULL,
-    lon REAL NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS shipments (
     store_id INTEGER PRIMARY KEY REFERENCES stores(id),
     carrier TEXT NOT NULL,
@@ -172,24 +159,9 @@ TRENDS = {
          ("2026-06-14", 51), ("2026-06-21", 48), ("2026-06-28", 45), ("2026-07-05", 44)]),
 }
 
-JETS = {
-    1: [("N721WM", "Walmart Aviation", "landing", "KMCO — Orlando Intl",
-         9.4, "2026-06-29T14:22:00Z", 28.4294, -81.3090),
-        ("N721WM", "Walmart Aviation", "proximity", "KMCO — Orlando Intl",
-         11.8, "2026-06-30T09:05:00Z", 28.4550, -81.3800)],
-    2: [("N723HD", "Home Depot Flight Ops", "landing", "KMIA — Miami Intl",
-         7.1, "2026-06-27T16:40:00Z", 25.7959, -80.2870)],
-    3: [],
-}
-
-<<<<<<< HEAD
-# signal_date = when our leading indicator (the import surge) crossed threshold.
-# It sits ~1-2 weeks BEFORE each company's next real material 8-K, so the
-# lead-time claim holds against SEC's live feed. These cached filings mirror
-# the real material 8-Ks (used only if the live pull fails).
-=======
 # Latest inbound shipment per store: carrier the retailer uses, the most
 # recent ship to arrive, its port, and what's on it (container counts).
+# Historical pre-market alt-data (like imports/satellite) — not live.
 SHIPMENTS = {
     1: ("Maersk", "Maersk Kensington", "JAXPORT — Jacksonville, FL", "2026-07-08",
         [("General merchandise", 64), ("Grocery & consumables", 38), ("Seasonal & outdoor", 21)]),
@@ -199,7 +171,10 @@ SHIPMENTS = {
         [("Apparel", 33), ("Home goods", 29), ("Electronics", 12)]),
 }
 
->>>>>>> ed0ce1cd15ffa5c76fae701222572bf99264cc5a
+# signal_date = when our leading indicator (the import surge) crossed threshold.
+# It sits ~1-2 weeks BEFORE each company's next real material 8-K, so the
+# lead-time claim holds against SEC's live feed. These cached filings mirror
+# the real material 8-Ks (used only if the live pull fails).
 FILINGS = {
     1: {
         "signal_date": "2026-05-12",
@@ -279,12 +254,6 @@ def init_db() -> None:
             conn.executemany(
                 "INSERT INTO trend_points (store_id, date, interest) VALUES (?, ?, ?)",
                 [(store_id, d, v) for d, v in points],
-            )
-        for store_id, events in JETS.items():
-            conn.executemany(
-                "INSERT INTO jet_events (store_id, tail_number, operator, event_type, airport,"
-                " distance_miles, timestamp, lat, lon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [(store_id, *e) for e in events],
             )
         for store_id, (carrier, ship, port, arrived, items) in SHIPMENTS.items():
             conn.execute(

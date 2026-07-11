@@ -12,7 +12,7 @@ from routes.imports import get_imports
 from routes.satellite import get_satellite
 from routes.trends import get_trends
 from schemas import ScoreResponse
-from fusion import compute_activity_score
+from fusion import compute_activity_score, interpret_combined
 
 router = APIRouter()
 
@@ -48,9 +48,17 @@ def get_score(store_id: int):
         score=result.score,
         confidence=result.confidence,
         components={
-            "imports": result.import_component,
-            "satellite": result.satellite_component,
-            "trend": result.trend_component,
+            "imports": result.import_signal.magnitude,
+            "satellite": result.satellite_signal.magnitude,
+            "trend": result.trend_signal.magnitude,
+        },
+        directions={
+            "imports": result.import_signal.direction,
+            "satellite": result.satellite_signal.direction,
+            "trend": result.trend_signal.direction,
         },
         weights=result.weights,
+        interpretation=interpret_combined(
+            result.import_signal, result.satellite_signal
+        ),
     )

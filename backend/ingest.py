@@ -22,7 +22,7 @@ to wipe back to the demo seed.
 import json
 
 from database import DB_PATH, get_conn, init_db
-from schemas import Filing, ImportPoint, JetEvent, ShipmentItem, TrendPoint
+from schemas import Filing, ImportPoint, ShipmentItem, TrendPoint
 
 
 
@@ -90,33 +90,6 @@ def replace_trends(store_id, query, region, points):
         conn.executemany(
             "INSERT INTO trend_points (store_id, date, interest) VALUES (?, ?, ?)",
             [(store_id, p.date, p.interest) for p in validated],
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def replace_jets(store_id, events):
-    """Replace all jet events for a store.
-
-    events: list of dicts matching schemas.JetEvent — tail_number, operator,
-    event_type ('landing' | 'proximity'), airport, distance_miles, timestamp,
-    lat, lon. Pass [] for no activity.
-    """
-    validated = [JetEvent(**e) for e in events]
-    init_db()
-    conn = get_conn()
-    try:
-        conn.execute("DELETE FROM jet_events WHERE store_id = ?", (store_id,))
-        conn.executemany(
-            "INSERT INTO jet_events (store_id, tail_number, operator, event_type,"
-            " airport, distance_miles, timestamp, lat, lon)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                (store_id, e.tail_number, e.operator, e.event_type, e.airport,
-                 e.distance_miles, e.timestamp, e.lat, e.lon)
-                for e in validated
-            ],
         )
         conn.commit()
     finally:

@@ -1,17 +1,35 @@
-"""/api/trends — serves Google Search Trends data for a store (Sally's pull).
+"""/api/trends — Google Search Trends for a store (Sally's pull).
 
-Spike detection: latest 2-week average vs the trailing baseline. Simple on
-purpose — say "recent interest vs baseline" in the demo, nothing fancier.
+LIVE-FIRST: pulls the interest series from Google Trends (trends_live.py) on
+each request, falling back to the seeded weekly series if pytrends rate-limits
+or errors. `source` says which path served it. Set PERIGEE_TRENDS_CACHED=1 to
+pin to the seed (a controlled trend shape for a scripted demo).
+
+Spike detection: latest 2-bucket average vs the trailing baseline — say
+"recent interest vs baseline" in the demo, nothing fancier.
 """
+
+import os
 
 from fastapi import APIRouter, HTTPException
 
+import trends_live
 from database import get_conn
 from schemas import TrendPoint, TrendsResponse
 
 router = APIRouter()
 
 SPIKE_RATIO = 1.5  # recent average must be 1.5x baseline to count as a spike
+
+
+def _detect_spike(points: list[TrendPoint]) -> tuple[bool, str | None]:
+    if len(points) < 6:
+        return False, None
+    baseline = sum(p.interest for p in points[:-2]) / (len(points) - 2)
+    recent = sum(p.interest for p in points[-2:]) / 2
+    if baseline > 0 and recent / baseline >= SPIKE_RATIO:
+        return True, max(points[-2:], key=lambda p: p.interest).date
+    return False, None
 
 
 @router.get("/api/trends", response_model=TrendsResponse)
@@ -31,21 +49,27 @@ def get_trends(store_id: int):
     if meta is None or not rows:
         raise HTTPException(404, f"No trends data for store {store_id}")
 
-    points = [TrendPoint(date=r["date"], interest=r["interest"]) for r in rows]
+    query, region = meta["query"], meta["region"]
 
-    spike_detected, spike_date = False, None
-    if len(points) >= 6:
-        baseline = sum(p.interest for p in points[:-2]) / (len(points) - 2)
-        recent = sum(p.interest for p in points[-2:]) / 2
-        if baseline > 0 and recent / baseline >= SPIKE_RATIO:
-            spike_detected = True
-            spike_date = max(points[-2:], key=lambda p: p.interest).date
+    # Live-first: real interest-over-time from Google Trends, else the seed.
+    source = "cached"
+    points = [TrendPoint(date=r["date"], interest=r["interest"]) for r in rows]
+    if not os.environ.get("PERIGEE_TRENDS_CACHED"):
+        try:
+            live = trends_live.fetch_interest(query, region)
+            points = [TrendPoint(date=d, interest=v) for d, v in live]
+            source = "live"
+        except Exception:
+            pass  # pytrends flaky -> keep the seeded series
+
+    spike_detected, spike_date = _detect_spike(points)
 
     return TrendsResponse(
         store_id=store_id,
-        query=meta["query"],
-        region=meta["region"],
+        query=query,
+        region=region,
         points=points,
         spike_detected=spike_detected,
         spike_date=spike_date,
+        source=source,
     )
