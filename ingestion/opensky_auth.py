@@ -15,6 +15,7 @@ Run:
 import os
 import time
 import requests
+from dotenv import load_dotenv
 
 TOKEN_URL = (
     "https://auth.opensky-network.org/auth/realms/opensky-network/"
@@ -70,8 +71,8 @@ def smoke_test(access_token: str, bbox=None):
 
 
 if __name__ == "__main__":
-    client_id = os.environ.get("OPENSKY_CLIENT_ID")
-    client_secret = os.environ.get("OPENSKY_CLIENT_SECRET")
+    client_id = os.getenv("OPENSKY_CLIENT_ID")
+    client_secret = os.getenv("OPENSKY_CLIENT_SECRET")
 
     if not client_id or not client_secret:
         raise SystemExit(
