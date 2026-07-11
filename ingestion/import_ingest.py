@@ -1,4 +1,4 @@
-"""US customs bill-of-lading ingestion — the supply-side signal.
+"""US customs bill-of-lading ingestion - the supply-side signal.
 
 Every ocean container imported into the US files a CBP customs manifest
 (consignee, shipper, container count, arrival date, port, goods). That data is
@@ -8,7 +8,7 @@ searchable by company name.
 
 WHY THIS IS CACHED, NOT LIVE
 ----------------------------
-Consignee names in customs data are filthy — "WALMART INC", "WAL MART STORES",
+Consignee names in customs data are filthy - "WALMART INC", "WAL MART STORES",
 subsidiaries, and the importer-of-record often isn't the brand. Matching
 manifests to a specific ticker is the whole risk, so we do it by hand once,
 verify it, and serve a cached JSON from the fallback layer. On stage it looks
@@ -27,12 +27,12 @@ Metric (kept identical to backend/routes/imports.py so the API and this file
 agree): surge = recent 2-month avg vs. the trailing baseline.
 
 *** SCALE-UP NOTE (top 3 -> top 25) ***
-Entries 1-3 are Dominic's real, hand-verified ImportYeti pulls — unchanged.
-Entries 4-25 are PLACEHOLDERS ONLY — plausible-looking numbers so the
+Entries 1-3 are Dominic's real, hand-verified ImportYeti pulls - unchanged.
+Entries 4-25 are PLACEHOLDERS ONLY - plausible-looking numbers so the
 pipeline/screener run end-to-end for testing, but they are NOT real
 shipment data. Each is tagged "PLACEHOLDER" in the supplier field as a
 loud reminder. Replace each one with a real importyeti.com lookup before
-this touches a judge-facing demo — the project's own non-negotiable rule
+this touches a judge-facing demo - the project's own non-negotiable rule
 is "every number is real," and these 22 currently violate that.
 """
 

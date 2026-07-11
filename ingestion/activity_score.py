@@ -19,7 +19,7 @@ SITE_LON = -81.20
 JET_PROXIMITY_MILES = 15.0
 
 # --- EDIT: which hero company's imports score to use for the funnel
-HERO_COMPANY = "Walmart"
+HERO_COMPANY = "WALMART INC"
 
 # Pivot weights -> jets removed entirely, imports added as the anchor.
 # Documented judgment calls, not fitted coefficients, say this plainly
