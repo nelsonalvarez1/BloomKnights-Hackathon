@@ -66,3 +66,69 @@ perigee/
     │   │   ├── Narrative.jsx       # Gemini output display
     │   │   └── PaywallModal.jsx    # pricing tiers
     │   └── api.js                  # fetch calls to backend, matches schemas.py
+
+
+
+
+    ┌─────────────────────────────────────────────────────────────────────┐
+│                         DATA SOURCE LAYER                            │
+└─────────────────────────────────────────────────────────────────────┘
+
+[NAIP GeoTIFF]          [Google Trends]      [OpenSky ADS-B]   [SEC EDGAR]
+      │                       │                     │               │
+      ▼                       │                     │               │
+[Crop to site bbox]           │                     │               │
+      │                       │                     │               │
+      ▼                       │                     │               │
+[Convert GeoTIFF→RGB JPG]     │                     │               │
+      │                       │                     │               │
+      ▼                       ▼                     ▼               ▼
+[YOLOv8 detection]     [pytrends: interest    [Tail-number      [submissions API:
+ conf=0.25, class=car   over time, per         proximity check    Form 4 / 8-K
+ → count + boxes]       locked company]        vs. site coords]   dates per CIK]
+      │                       │                     │               │
+      ▼                       │                     │               │
+[Annotated overlay            │                     │               │
+ image for display]           │                     │               │
+      │                       │                     │               │
+      └──────────┬────────────┴──────────┬──────────┘               │
+                  ▼                       ▼                          │
+                                                                      │
+      [yfinance: bulk historical    [Finnhub: live quote —           │
+       baseline, ALL ~50 tickers,    only for names the fusion       │
+       one-time cached pull]         layer flags as active]          │
+                  │                       │                          │
+                  └───────────┬───────────┘                          │
+                              ▼                                      │
+┌─────────────────────────────────────────────────────────────────────┐
+│                          FUSION LAYER (Nelson)                       │
+│  • Regression: Trends interest calibrated against satellite counts   │
+│  • Jet-proximity flag (haversine, time-windowed)                     │
+│  • Combined "activity score" per company                             │
+│  • EDGAR filing-lag calc: signal date vs. official filing date       │
+│  • Flags which of the ~50 companies are "active" → triggers          │
+│    Finnhub live lookup for just those names                          │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     GEMINI REASONING LAYER                           │
+│  Input: satellite images + counts, Trends series, jet events,        │
+│         price context, EDGAR filing dates                            │
+│  Output: written thesis + confidence level, citing specific evidence │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                   BACKEND (Sameer) — FastAPI + SQLite                │
+│  Routes: /satellite /trends /jets /edgar /prices /narrative          │
+│  Cached fallback layer for every source (Trends/OpenSky most fragile)│
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                  FRONTEND (Sameer) — React dashboard                 │
+│  Image compare (satellite + boxes) │ Trends chart │ Jet map          │
+│  EDGAR timeline (Day 0 vs Day X — the money shot)                    │
+│  Price overlay on timeline │ Gemini narrative │ Paywall modal        │
+└─────────────────────────────────────────────────────────────────────┘
