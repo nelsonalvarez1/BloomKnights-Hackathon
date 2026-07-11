@@ -1,0 +1,37 @@
+{
+  "generated_at": "2026-07-11T19:48:37.919318+00:00",
+  "signal_detected_date": "2026-05-20",
+  "confidence_score": 0.0,
+  "confidence_label": "LOW",
+  "imports": {
+    "raw_change_pct": null,
+    "score": 0.0
+  },
+  "satellite": {
+    "raw_count": null,
+    "score": 0.0
+  },
+  "google_trends": {
+    "raw_values": {},
+    "score": 0.0
+  },
+  "insider_intent_jet_flag": {
+    "nearest_distance_miles": null,
+    "flag": false
+  },
+  "filing_lag": {
+    "days_early": 9,
+    "matched_filing": {
+      "company": "Apple",
+      "form": "4",
+      "filingDate": "2026-05-29",
+      "accessionNumber": "0001140361-26-023363",
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126023363/xslF345X06/form4.xml"
+    }
+  },
+  "weights_used": {
+    "imports": 0.35,
+    "satellite": 0.35,
+    "trends": 0.3
+  }
+}
