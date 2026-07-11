@@ -71,25 +71,6 @@ class TrendsResponse(BaseModel):
     spike_date: str | None = None
 
 
-# ---- /api/jets -------------------------------------------------------------
-
-class JetEvent(BaseModel):
-    tail_number: str
-    operator: str
-    event_type: str  # "landing" | "proximity"
-    airport: str
-    distance_miles: float  # distance from the store
-    timestamp: str
-    lat: float
-    lon: float
-
-
-class JetsResponse(BaseModel):
-    store_id: int
-    events: list[JetEvent]
-    proximity_flag: bool
-
-
 # ---- /api/supply -----------------------------------------------------------
 
 class ShipmentItem(BaseModel):
