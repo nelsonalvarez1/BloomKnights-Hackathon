@@ -115,6 +115,45 @@ STORES = [
     },
 ]
 
+# ---- Lite-tier companies (Trends + EDGAR only, no satellite/imports) -------
+# IDs 4-25, continuing from the existing hero tier (1=Walmart, 2=Home Depot,
+# 3=Target). CIKs pulled from SEC's real ticker->CIK mapping, all 22 matched
+# cleanly, zero misses. Company names lightly cleaned from raw SEC filer names.
+#
+# These rows go into STORES alongside the existing 3. No satellite_snapshots
+# or import_meta/import_points rows exist for these IDs (that's the whole
+# point of "lite tier") -- get_satellite()/get_imports() will 404 for them,
+# which is expected. Only get_trends()/get_edgar() should be called for these.
+#
+# lat/lon left as None here -- stores.lat/lon is currently NOT NULL in the
+# schema, so either (a) make those columns nullable, or (b) fill with HQ
+# coordinates if Sameer's leaderboard wants map pins. Confirm with him first.
+
+LITE_TIER = [
+    {"id": 4, "company": "Costco Wholesale Corporation", "ticker": "COST", "cik": "0000909832"},
+    {"id": 5, "company": "Lowe's Companies, Inc.", "ticker": "LOW", "cik": "0000060667"},
+    {"id": 6, "company": "The TJX Companies, Inc.", "ticker": "TJX", "cik": "0000109198"},
+    {"id": 7, "company": "CVS Health Corporation", "ticker": "CVS", "cik": "0000064803"},
+    {"id": 8, "company": "The Kroger Co.", "ticker": "KR", "cik": "0000056873"},
+    {"id": 9, "company": "Walgreens Boots Alliance, Inc.", "ticker": "WBA", "cik": "0001618921"},
+    {"id": 10, "company": "Best Buy Co., Inc.", "ticker": "BBY", "cik": "0000764478"},
+    {"id": 11, "company": "Dollar General Corporation", "ticker": "DG", "cik": "0000029534"},
+    {"id": 12, "company": "Dollar Tree, Inc.", "ticker": "DLTR", "cik": "0000935703"},
+    {"id": 13, "company": "Ross Stores, Inc.", "ticker": "ROST", "cik": "0000745732"},
+    {"id": 14, "company": "Kohl's Corporation", "ticker": "KSS", "cik": "0000885639"},
+    {"id": 15, "company": "Macy's, Inc.", "ticker": "M", "cik": "0000794367"},
+    {"id": 16, "company": "Nordstrom, Inc.", "ticker": "JWN", "cik": "0000072333"},
+    {"id": 17, "company": "AutoZone, Inc.", "ticker": "AZO", "cik": "0000866787"},
+    {"id": 18, "company": "O'Reilly Automotive, Inc.", "ticker": "ORLY", "cik": "0000898173"},
+    {"id": 19, "company": "Tractor Supply Company", "ticker": "TSCO", "cik": "0000916365"},
+    {"id": 20, "company": "Ulta Beauty, Inc.", "ticker": "ULTA", "cik": "0001403568"},
+    {"id": 21, "company": "Starbucks Corporation", "ticker": "SBUX", "cik": "0000829224"},
+    {"id": 22, "company": "McDonald's Corporation", "ticker": "MCD", "cik": "0000063908"},
+    {"id": 23, "company": "Chipotle Mexican Grill, Inc.", "ticker": "CMG", "cik": "0001058090"},
+    {"id": 24, "company": "BJ's Wholesale Club Holdings, Inc.", "ticker": "BJ", "cik": "0001531152"},
+    {"id": 25, "company": "Albertsons Companies, Inc.", "ticker": "ACI", "cik": "0001646972"},
+]
+
 # car_count values mirror ml/detections.json (YOLOv8 output). The before/after
 # jump is the on-the-ground activity signal: Walmart 20->102, HD 37->59,
 # Target 17->12 (a decliner, on purpose — the score must discriminate).
@@ -171,10 +210,13 @@ SHIPMENTS = {
         [("Apparel", 33), ("Home goods", 29), ("Electronics", 12)]),
 }
 
+<<<<<<< HEAD
 # signal_date = when our leading indicator (the import surge) crossed threshold.
 # It sits ~1-2 weeks BEFORE each company's next real material 8-K, so the
 # lead-time claim holds against SEC's live feed. These cached filings mirror
 # the real material 8-Ks (used only if the live pull fails).
+=======
+>>>>>>> 51a0bc0d8f236dfd0014768c54c43812b21ab797
 FILINGS = {
     1: {
         "signal_date": "2026-05-12",
