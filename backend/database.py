@@ -210,13 +210,10 @@ SHIPMENTS = {
         [("Apparel", 33), ("Home goods", 29), ("Electronics", 12)]),
 }
 
-<<<<<<< HEAD
 # signal_date = when our leading indicator (the import surge) crossed threshold.
 # It sits ~1-2 weeks BEFORE each company's next real material 8-K, so the
 # lead-time claim holds against SEC's live feed. These cached filings mirror
 # the real material 8-Ks (used only if the live pull fails).
-=======
->>>>>>> 51a0bc0d8f236dfd0014768c54c43812b21ab797
 FILINGS = {
     1: {
         "signal_date": "2026-05-12",

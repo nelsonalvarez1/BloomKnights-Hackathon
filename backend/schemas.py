@@ -69,10 +69,7 @@ class TrendsResponse(BaseModel):
     points: list[TrendPoint]
     spike_detected: bool
     spike_date: str | None = None
-<<<<<<< HEAD
     source: str = "cached"  # "live" = pulled from Google Trends this request
-=======
->>>>>>> 51a0bc0d8f236dfd0014768c54c43812b21ab797
 
 
 # ---- /api/supply -----------------------------------------------------------
