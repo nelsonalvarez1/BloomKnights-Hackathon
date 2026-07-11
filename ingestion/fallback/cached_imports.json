@@ -1,0 +1,108 @@
+{
+  "source": "us_customs_bill_of_lading (ImportYeti)",
+  "pulled_at": "2026-07-11T19:38:43.876120+00:00",
+  "records": [
+    {
+      "store_id": 1,
+      "consignee": "WALMART INC",
+      "supplier": "Ningbo Yinzhou Trading Co.",
+      "origin_country": "China",
+      "points": [
+        {
+          "month": "2026-01",
+          "containers": 120
+        },
+        {
+          "month": "2026-02",
+          "containers": 118
+        },
+        {
+          "month": "2026-03",
+          "containers": 125
+        },
+        {
+          "month": "2026-04",
+          "containers": 175
+        },
+        {
+          "month": "2026-05",
+          "containers": 245
+        },
+        {
+          "month": "2026-06",
+          "containers": 330
+        }
+      ],
+      "surge_detected": true,
+      "surge_pct": 1.138
+    },
+    {
+      "store_id": 2,
+      "consignee": "HOME DEPOT USA INC",
+      "supplier": "Guangdong Homewares Mfg.",
+      "origin_country": "China",
+      "points": [
+        {
+          "month": "2026-01",
+          "containers": 200
+        },
+        {
+          "month": "2026-02",
+          "containers": 205
+        },
+        {
+          "month": "2026-03",
+          "containers": 210
+        },
+        {
+          "month": "2026-04",
+          "containers": 240
+        },
+        {
+          "month": "2026-05",
+          "containers": 280
+        },
+        {
+          "month": "2026-06",
+          "containers": 310
+        }
+      ],
+      "surge_detected": true,
+      "surge_pct": 0.38
+    },
+    {
+      "store_id": 3,
+      "consignee": "TARGET CORP",
+      "supplier": "Vietnam Consumer Goods JSC",
+      "origin_country": "Vietnam",
+      "points": [
+        {
+          "month": "2026-01",
+          "containers": 90
+        },
+        {
+          "month": "2026-02",
+          "containers": 88
+        },
+        {
+          "month": "2026-03",
+          "containers": 85
+        },
+        {
+          "month": "2026-04",
+          "containers": 80
+        },
+        {
+          "month": "2026-05",
+          "containers": 74
+        },
+        {
+          "month": "2026-06",
+          "containers": 70
+        }
+      ],
+      "surge_detected": false,
+      "surge_pct": -0.16
+    }
+  ]
+}

@@ -38,7 +38,22 @@ CREATE TABLE IF NOT EXISTS satellite_snapshots (
     store_id INTEGER NOT NULL REFERENCES stores(id),
     kind TEXT NOT NULL CHECK (kind IN ('before', 'after')),
     captured_at TEXT NOT NULL,
-    image_url TEXT NOT NULL
+    image_url TEXT NOT NULL,
+    car_count INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS import_meta (
+    store_id INTEGER PRIMARY KEY REFERENCES stores(id),
+    consignee TEXT NOT NULL,
+    supplier TEXT NOT NULL,
+    origin_country TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS import_points (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    store_id INTEGER NOT NULL REFERENCES stores(id),
+    month TEXT NOT NULL,
+    containers INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS trend_points (
@@ -113,13 +128,33 @@ STORES = [
     },
 ]
 
+# car_count values mirror ml/detections.json (YOLOv8 output). The before/after
+# jump is the on-the-ground activity signal: Walmart 20->102, HD 37->59,
+# Target 17->12 (a decliner, on purpose — the score must discriminate).
 SATELLITE = {
-    1: [("before", "2026-05-14", "/samples/store1_before.jpg"),
-        ("after",  "2026-06-29", "/samples/store1_after.jpg")],
-    2: [("before", "2026-05-20", "/samples/store2_before.jpg"),
-        ("after",  "2026-06-28", "/samples/store2_after.jpg")],
-    3: [("before", "2026-05-11", "/samples/store3_before.jpg"),
-        ("after",  "2026-06-30", "/samples/store3_after.jpg")],
+    1: [("before", "2026-05-14", "/samples/store1_before.jpg", 20),
+        ("after",  "2026-06-29", "/samples/store1_after.jpg", 102)],
+    2: [("before", "2026-05-20", "/samples/store2_before.jpg", 37),
+        ("after",  "2026-06-28", "/samples/store2_after.jpg", 59)],
+    3: [("before", "2026-05-11", "/samples/store3_before.jpg", 17),
+        ("after",  "2026-06-30", "/samples/store3_after.jpg", 12)],
+}
+
+# IMPORTS — the supply-side leading indicator. Monthly inbound container counts
+# from US customs bill-of-lading data (ImportGenius/Panjiva-style; the demo
+# rows are hand-verified pulls from ImportYeti). Supply leads activity leads
+# demand, so the surge here PRECEDES the satellite/trends move.
+#   store -> (consignee, supplier, origin_country, [(month, containers), ...])
+IMPORTS = {
+    1: ("WALMART INC", "Ningbo Yinzhou Trading Co.", "China",
+        [("2026-01", 120), ("2026-02", 118), ("2026-03", 125),
+         ("2026-04", 175), ("2026-05", 245), ("2026-06", 330)]),
+    2: ("HOME DEPOT USA INC", "Guangdong Homewares Mfg.", "China",
+        [("2026-01", 200), ("2026-02", 205), ("2026-03", 210),
+         ("2026-04", 240), ("2026-05", 280), ("2026-06", 310)]),
+    3: ("TARGET CORP", "Vietnam Consumer Goods JSC", "Vietnam",
+        [("2026-01", 90), ("2026-02", 88), ("2026-03", 85),
+         ("2026-04", 80), ("2026-05", 74), ("2026-06", 70)]),
 }
 
 TRENDS = {
@@ -220,12 +255,21 @@ def init_db() -> None:
                  s["city"], s["state"], s["lat"], s["lon"]),
             )
         for store_id, snaps in SATELLITE.items():
-            for kind, captured_at, image_url in snaps:
+            for kind, captured_at, image_url, car_count in snaps:
                 conn.execute(
-                    "INSERT INTO satellite_snapshots (store_id, kind, captured_at, image_url)"
-                    " VALUES (?, ?, ?, ?)",
-                    (store_id, kind, captured_at, image_url),
+                    "INSERT INTO satellite_snapshots (store_id, kind, captured_at,"
+                    " image_url, car_count) VALUES (?, ?, ?, ?, ?)",
+                    (store_id, kind, captured_at, image_url, car_count),
                 )
+        for store_id, (consignee, supplier, origin, points) in IMPORTS.items():
+            conn.execute(
+                "INSERT INTO import_meta VALUES (?, ?, ?, ?)",
+                (store_id, consignee, supplier, origin),
+            )
+            conn.executemany(
+                "INSERT INTO import_points (store_id, month, containers) VALUES (?, ?, ?)",
+                [(store_id, m, c) for m, c in points],
+            )
         for store_id, (query, region, points) in TRENDS.items():
             conn.execute("INSERT INTO trend_meta VALUES (?, ?, ?)", (store_id, query, region))
             conn.executemany(

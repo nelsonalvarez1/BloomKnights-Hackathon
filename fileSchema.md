@@ -1,5 +1,21 @@
 perigee/
 │
+│  ══════════════════════════════════════════════════════════════════════
+│  CURRENT ARCHITECTURE — the signal funnel (supersedes the jet-centric
+│  diagram lower in this file):
+│
+│      IMPORTS (supply in)  →  SATELLITE (activity)  →  TRENDS (demand)
+│                          ↓
+│                   FUSED ACTIVITY SCORE  →  EDGAR (files days later = edge)
+│
+│  • Imports = US customs bill-of-lading container volume (backend/routes/
+│    imports.py, ingestion/import_ingest.py) — the supply-side leading signal.
+│  • Score = backend/fusion.py, weights {imports .35, satellite .35, trend .30}.
+│  • Corporate jets are DEMOTED: still shown on the map as a secondary
+│    insider-intent flag, but no longer part of the score.
+│  • CCTV is gone (was replaced by Google Trends as the demand signal).
+│  ══════════════════════════════════════════════════════════════════════
+│
 ├── README.md
 ├── .env.example                   # Gemini key, OpenSky client_id/secret
 │                                   # (no key needed for Trends or EDGAR)
