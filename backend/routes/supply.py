@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException
 
 from database import get_conn
 from schemas import ShipmentItem, SupplyResponse
+from synth import synth_supply
 
 router = APIRouter()
 
@@ -22,11 +23,25 @@ def get_supply(store_id: int):
         row = conn.execute(
             "SELECT * FROM shipments WHERE store_id = ?", (store_id,)
         ).fetchone()
+        store = conn.execute(
+            "SELECT ticker FROM stores WHERE id = ?", (store_id,)
+        ).fetchone()
     finally:
         conn.close()
 
+    if store is None:
+        raise HTTPException(404, f"Unknown store {store_id}")
+
+    # Synthesize a company-aligned latest shipment when none is seeded, so the
+    # supply panel always renders and its volume matches the import trend.
     if row is None:
-        raise HTTPException(404, f"No supply-chain data for store {store_id}")
+        carrier, ship, port, arrived, syn_items = synth_supply(store_id, store["ticker"])
+        items = [ShipmentItem(item=i, containers=c) for i, c in syn_items]
+        return SupplyResponse(
+            store_id=store_id, carrier=carrier, ship_name=ship, port=port,
+            arrived_at=arrived, items=items,
+            total_containers=sum(i.containers for i in items),
+        )
 
     items = [ShipmentItem(**i) for i in json.loads(row["inventory_json"])]
     return SupplyResponse(

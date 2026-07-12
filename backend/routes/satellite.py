@@ -7,12 +7,11 @@ stable, believable numbers instead of 404-ing — the response shape is identica
 either way, and the same store always returns the same values across requests.
 """
 
-import hashlib
-
 from fastapi import APIRouter, HTTPException
 
 from database import get_conn
 from schemas import SatelliteResponse, SatelliteSnapshot
+from synth import synth_satellite
 
 router = APIRouter()
 
@@ -31,13 +30,10 @@ def _snapshot(row) -> SatelliteSnapshot:
 
 
 def _synthesize(store_id: int, ticker: str) -> tuple[SatelliteSnapshot, SatelliteSnapshot]:
-    """Stable, realistic before/after for a store without seeded imagery.
-    Deterministic hash of (store_id, ticker) -> a plausible lot size and an
-    occupancy delta in roughly [-30%, +160%]."""
-    h = int(hashlib.md5(f"{store_id}-{ticker}".encode()).hexdigest(), 16)
-    before = 24 + (h % 46)                       # 24-69 vehicles
-    delta = ((h >> 9) % 190 - 30) / 100.0        # -0.30 .. +1.60
-    after = max(5, round(before * (1 + delta)))
+    """Stable before/after for a store without seeded imagery — the vehicle
+    delta shares the same company bias as its trends/imports so all signals
+    line up (see synth.company_bias)."""
+    before, after = synth_satellite(store_id, ticker)
     slot = (store_id % _SAMPLE_SLOTS) + 1        # 1..3 -> existing sample images
     return (
         SatelliteSnapshot(captured_at=_BEFORE_DATE,

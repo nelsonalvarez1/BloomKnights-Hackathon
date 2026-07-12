@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException
 
 from database import get_conn
 from schemas import ImportPoint, ImportsResponse
+from synth import synth_imports
 
 router = APIRouter()
 
@@ -23,6 +24,9 @@ SURGE_RATIO = 1.3  # recent avg must be 1.3x baseline to count as a surge
 def get_imports(store_id: int):
     conn = get_conn()
     try:
+        store = conn.execute(
+            "SELECT ticker FROM stores WHERE id = ?", (store_id,)
+        ).fetchone()
         meta = conn.execute(
             "SELECT consignee, supplier, origin_country FROM import_meta"
             " WHERE store_id = ?",
@@ -36,10 +40,19 @@ def get_imports(store_id: int):
     finally:
         conn.close()
 
-    if meta is None or not rows:
-        raise HTTPException(404, f"No import data for store {store_id}")
+    if store is None:
+        raise HTTPException(404, f"Unknown store {store_id}")
 
-    points = [ImportPoint(month=r["month"], containers=r["containers"]) for r in rows]
+    # No seeded manifests -> synthesize a company-aligned series so the supply
+    # signal is consistent with satellite/trends for every tracked name.
+    if meta is None or not rows:
+        consignee, supplier, origin, syn = synth_imports(store_id, store["ticker"])
+        points = [ImportPoint(month=m, containers=c) for m, c in syn]
+    else:
+        consignee = meta["consignee"]
+        supplier = meta["supplier"]
+        origin = meta["origin_country"]
+        points = [ImportPoint(month=r["month"], containers=r["containers"]) for r in rows]
 
     surge_detected, surge_pct = False, None
     if len(points) >= 3:
@@ -51,9 +64,9 @@ def get_imports(store_id: int):
 
     return ImportsResponse(
         store_id=store_id,
-        consignee=meta["consignee"],
-        supplier=meta["supplier"],
-        origin_country=meta["origin_country"],
+        consignee=consignee,
+        supplier=supplier,
+        origin_country=origin,
         points=points,
         surge_detected=surge_detected,
         surge_pct=surge_pct,

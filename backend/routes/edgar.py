@@ -16,6 +16,7 @@ from fastapi import APIRouter, HTTPException
 import edgar_live
 from database import get_conn
 from schemas import EdgarResponse, Filing
+from synth import synth_signal_date
 
 router = APIRouter()
 
@@ -43,12 +44,18 @@ def get_edgar(store_id: int):
     finally:
         conn.close()
 
-    if store is None or signal is None:
-        raise HTTPException(404, f"No EDGAR data for store {store_id}")
+    if store is None:
+        raise HTTPException(404, f"Unknown store {store_id}")
 
-    signal_date = signal["signal_date"]
+    # Hero stores carry a seeded signal date; every other company gets a stable
+    # synthesized one so its real SEC filings can still be pulled live and the
+    # lead-time timeline always renders.
+    signal_date = signal["signal_date"] if signal else synth_signal_date(
+        store_id, store["cik"]
+    )
 
-    # Live-first: real filings on/after the signal date, straight from SEC.
+    # Live-first: real filings on/after the signal date, straight from SEC. This
+    # is genuinely live for EVERY company — they all have real CIKs.
     source = "cached"
     filings = cached
     try:
@@ -59,6 +66,15 @@ def get_edgar(store_id: int):
     except Exception:
         pass  # network/parse hiccup -> keep the cached rows, never 500 on stage
 
+    # Last resort: if SEC was unreachable AND there were no cached rows, widen
+    # the window to the CIK's most recent filings so the panel still populates.
+    if not filings:
+        try:
+            live = edgar_live.fetch_live_filings(store["cik"])
+            filings = [Filing(**f) for f in live]
+            source = "live"
+        except Exception:
+            filings = []
     if not filings:
         raise HTTPException(404, f"No EDGAR filings for store {store_id}")
 

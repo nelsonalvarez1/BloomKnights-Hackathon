@@ -16,6 +16,7 @@ from fastapi import APIRouter, HTTPException
 import trends_live
 from database import get_conn
 from schemas import TrendPoint, TrendsResponse
+from synth import synth_trends
 
 router = APIRouter()
 
@@ -36,6 +37,9 @@ def _detect_spike(points: list[TrendPoint]) -> tuple[bool, str | None]:
 def get_trends(store_id: int):
     conn = get_conn()
     try:
+        store = conn.execute(
+            "SELECT company, ticker FROM stores WHERE id = ?", (store_id,)
+        ).fetchone()
         meta = conn.execute(
             "SELECT query, region FROM trend_meta WHERE store_id = ?", (store_id,)
         ).fetchone()
@@ -46,8 +50,19 @@ def get_trends(store_id: int):
     finally:
         conn.close()
 
+    if store is None:
+        raise HTTPException(404, f"Unknown store {store_id}")
+
+    # No seeded series (any company past the 3 hero stores) -> synthesize a
+    # stable, company-aligned series so the panel always loads instantly.
     if meta is None or not rows:
-        raise HTTPException(404, f"No trends data for store {store_id}")
+        query, region, syn = synth_trends(store_id, store["ticker"], store["company"])
+        points = [TrendPoint(date=d, interest=v) for d, v in syn]
+        spike_detected, spike_date = _detect_spike(points)
+        return TrendsResponse(
+            store_id=store_id, query=query, region=region, points=points,
+            spike_detected=spike_detected, spike_date=spike_date, source="modeled",
+        )
 
     query, region = meta["query"], meta["region"]
 
