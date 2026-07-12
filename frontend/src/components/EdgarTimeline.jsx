@@ -33,7 +33,7 @@ export default function EdgarTimeline({ data }) {
           <span className="node-dot" />
           <span className="node-label">
             <strong>Day 0</strong>
-            Perigee signal fired
+            Kaleidoscope signal fired
             <small>{data.signal_date}</small>
           </span>
         </div>

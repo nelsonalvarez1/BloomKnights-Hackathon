@@ -1,18 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import {
   fetchEdgar,
+  fetchImports,
   // fetchJets, // planes section disabled for now — see JetMap below
   fetchSatellite,
   fetchStores,
   fetchSupply,
   fetchTrends,
 } from './api'
+import { computeFusion } from './fusion'
 import EdgarTimeline from './components/EdgarTimeline'
+import FusionCommand from './components/FusionCommand'
 import ImageCompare from './components/ImageCompare'
 // import JetMap from './components/JetMap' // planes section disabled for now
+import MetricGrid from './components/MetricGrid'
 import Narrative from './components/Narrative'
 import PaywallModal from './components/PaywallModal'
+import SignalCascade from './components/SignalCascade'
+import StoreFleet from './components/StoreFleet'
 import SupplyChain from './components/SupplyChain'
 import TrendsChart from './components/TrendsChart'
 
@@ -35,6 +41,7 @@ export default function App() {
   const [trends, setTrends] = useState(null)
   // const [jets, setJets] = useState(null) // planes section disabled for now
   const [supply, setSupply] = useState(null)
+  const [imports, setImports] = useState(null)
   const [edgar, setEdgar] = useState(null)
   const [paywallOpen, setPaywallOpen] = useState(false)
   const [loadError, setLoadError] = useState(null)
@@ -54,27 +61,39 @@ export default function App() {
     setTrends(null)
     // setJets(null) // planes section disabled for now
     setSupply(null)
+    setImports(null)
     setEdgar(null)
     fetchSatellite(storeId).then(setSatellite).catch(() => {})
     fetchTrends(storeId).then(setTrends).catch(() => {})
     // fetchJets(storeId).then(setJets).catch(() => {}) // planes section disabled for now
     fetchSupply(storeId).then(setSupply).catch(() => {})
+    fetchImports(storeId).then(setImports).catch(() => {})
     fetchEdgar(storeId).then(setEdgar).catch(() => {})
   }, [storeId])
 
   const store = stores.find((s) => s.id === storeId)
 
+  // The fusion engine recomputes whenever any signal lands. Ready once the
+  // store is known — degrades gracefully as individual signals arrive.
+  const fusion = useMemo(() => {
+    if (!store) return null
+    return computeFusion({ store, satellite, trends, supply, imports, edgar })
+  }, [store, satellite, trends, supply, imports, edgar])
+
   return (
     <div className="app">
       <header className="topbar">
-        <img className="logo-slot" src="/KaleidoscopeWordmarkWhite_1.png" alt="Perigee" />
-        <button
-          type="button"
-          className="upgrade-btn"
-          onClick={() => setPaywallOpen(true)}
-        >
-          Upgrade
-        </button>
+        <img className="logo-slot" src="/KaleidoscopeWordmarkWhite_1.png" alt="Kaleidoscope" />
+        <div className="topbar-right">
+          <span className="live-chip">Signals Live</span>
+          <button
+            type="button"
+            className="upgrade-btn"
+            onClick={() => setPaywallOpen(true)}
+          >
+            Upgrade
+          </button>
+        </div>
       </header>
 
       {loadError && <div className="load-error">{loadError}</div>}
@@ -107,6 +126,22 @@ export default function App() {
       </div>
 
       <main className="grid">
+        <Panel title="Fusion Command" tag="Investment Signal" className="span-12 panel-hero">
+          <FusionCommand fusion={fusion} store={store} />
+        </Panel>
+
+        <Panel title="Signal Fusion Hierarchy" tag="Cross-signal graph" className="span-5">
+          <SignalCascade fusion={fusion} />
+        </Panel>
+
+        <Panel title="Fleet Intelligence" tag="10 monitored sites" className="span-7">
+          <StoreFleet fusion={fusion} />
+        </Panel>
+
+        <Panel title="Quant Metrics" tag="Derived signals" className="span-12">
+          <MetricGrid fusion={fusion} />
+        </Panel>
+
         <Panel title="Satellites" tag="NAIP" className="span-12">
           <ImageCompare data={satellite} />
         </Panel>
@@ -136,8 +171,8 @@ export default function App() {
       </main>
 
       <footer className="footer">
-        All signals from public sources: USGS NAIP · Google Trends · port
-        arrival data · SEC EDGAR
+        Kaleidoscope · all signals from public sources: US Customs manifests ·
+        USGS NAIP imagery · Google Trends · port arrivals · SEC EDGAR
       </footer>
 
       <PaywallModal open={paywallOpen} onClose={() => setPaywallOpen(false)} />

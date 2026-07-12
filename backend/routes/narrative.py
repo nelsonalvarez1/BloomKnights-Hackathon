@@ -32,12 +32,26 @@ GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
 
-PROMPT_TEMPLATE = """You are an alt-data analyst writing a short investment-signal thesis.
-Use ONLY the data below. Cite each signal type you use. Be specific with numbers
-and dates. Tell it as one funnel: SUPPLY (imports) leads on-the-ground ACTIVITY
-(satellite) leads consumer DEMAND (search), then EDGAR confirms it later. 3 short
-paragraphs max. State the confidence level (low/medium/high) and why. Do not
-invent facts not present in the payload.
+PROMPT_TEMPLATE = """You are a senior alt-data analyst at a quantitative hedge fund writing an
+institutional investment-signal note for the investment committee. Use ONLY the
+data below — never invent facts. Cite specific numbers and dates for every claim.
+The core narrative is one causal funnel: SUPPLY (imports) leads on-the-ground
+ACTIVITY (satellite parking counts) leads consumer DEMAND (search), which drives
+REVENUE and EARNINGS, and SEC EDGAR confirms it later — the lead time is the edge.
+
+Write in tight, confident desk prose. Reason about the RELATIONSHIPS between
+signals, do not just restate them. Use exactly these labeled sections, each 1-3
+sentences, separated by blank lines:
+
+Investment Thesis — the one-line call and why the edge exists.
+Evidence Summary — the strongest quantified signals, in funnel order.
+Signal Breakdown — supply, activity, and demand each read individually.
+Contradictory Evidence — anything cutting against the thesis (or "none material").
+Risk Factors — what would invalidate the call.
+Expected Catalyst — the EDGAR filing / earnings event and its timing.
+Bull Case / Bear Case — the asymmetry.
+Recommendation — STRONG BUY / BUY / HOLD / REDUCE / AVOID, with the confidence
+level (low/medium/high) and why.
 
 Store: {store_name} ({company}, {ticker}) — {city}, {state}
 Fused activity score: {score} of 1.0 ({confidence} confidence)
@@ -142,51 +156,104 @@ def _render_prompt(p: dict) -> str:
 
 
 def _fallback_thesis(p: dict) -> str:
+    """Deterministic institutional note built from the same real payload Gemini
+    would see. Reads as a sectioned desk note so the demo never depends on an
+    external key. Sections mirror PROMPT_TEMPLATE."""
     imp, sat, trends, edgar = p["imports"], p["satellite"], p["trends"], p["edgar"]
     store = p["store"]
     score = _score(p)
-    parts = [
-        f"Fused activity score: {score.score} of 1.0 ({score.confidence} confidence) — "
-        f"{interpret_combined(score.import_signal, score.satellite_signal)}."
+
+    # Directional conviction — weighted physical + demand vote, matching the
+    # frontend fusion engine. Physical evidence (imports+satellite) dominates.
+    conv = (
+        0.40 * score.satellite_signal.direction * score.satellite_signal.magnitude
+        + 0.35 * score.import_signal.direction * score.import_signal.magnitude
+        + 0.25 * score.trend_signal.direction * score.trend_signal.magnitude
+    )
+    if conv > 0.45:
+        rec = "STRONG BUY"
+    elif conv > 0.15:
+        rec = "BUY"
+    elif conv > -0.15:
+        rec = "HOLD"
+    elif conv > -0.45:
+        rec = "REDUCE"
+    else:
+        rec = "AVOID"
+
+    combined = interpret_combined(score.import_signal, score.satellite_signal)
+    sat_move = _pct(sat.count_change_pct)
+    peak_interest = max(pt.interest for pt in trends.points) if trends.points else 0
+
+    supply_read = (
+        f"{imp.consignee} pulled {imp.points[-1].containers} inbound containers in "
+        f"{imp.points[-1].month} from {imp.supplier} ({imp.origin_country}), "
+        f"{_pct(imp.surge_pct) if imp.surge_pct is not None else 'flat'} vs. baseline"
+        + (" — a genuine restock ahead of a ramp." if imp.surge_detected
+           else " — supply is not confirming a ramp.")
+    )
+    activity_read = (
+        f"Satellite counts at {store['name']} moved {sat.before.car_count}→"
+        f"{sat.after.car_count} vehicles ({sat_move}) between {sat.before.captured_at} "
+        f"and {sat.after.captured_at}."
+    )
+    demand_read = (
+        f'Search interest for "{trends.query}" ({trends.region}) '
+        + (f"spiked to {peak_interest} around {trends.spike_date}, corroborating the move."
+           if trends.spike_detected
+           else f"peaked at {peak_interest} with no fresh spike, so demand only partially confirms.")
+    )
+
+    # Contradiction check — do any signals disagree with the majority?
+    dirs = [s.direction for s in (score.import_signal, score.satellite_signal, score.trend_signal) if s.direction]
+    disagreeing = dirs and not (all(d > 0 for d in dirs) or all(d < 0 for d in dirs))
+
+    bullish = conv >= 0
+    sections = [
+        f"Investment Thesis — {rec} on {store['company']} ({store['ticker']}). "
+        f"Fused activity score {score.score}/1.0 at {score.confidence} confidence; "
+        f"{combined.lower()}. The edge is timing: the alt-data funnel resolved "
+        f"~{edgar.lead_days} days before SEC confirmation.",
+
+        f"Evidence Summary — {supply_read} {activity_read} {demand_read}",
+
+        f"Signal Breakdown — Supply anomaly {score.import_signal.magnitude:.2f} "
+        f"({_dir_word(score.import_signal.direction)}); "
+        f"physical activity {score.satellite_signal.magnitude:.2f} "
+        f"({_dir_word(score.satellite_signal.direction)}); "
+        f"demand {score.trend_signal.magnitude:.2f} "
+        f"({_dir_word(score.trend_signal.direction)}).",
+
+        "Contradictory Evidence — " + (
+            "signals diverge; physical and demand reads point different ways, which "
+            "caps conviction until they reconcile." if disagreeing
+            else "none material — supply, activity, and demand all point the same way."),
+
+        "Risk Factors — the thesis breaks if the import surge reflects one-off "
+        "channel stuffing rather than sell-through, or if the satellite delta is "
+        "seasonal. EDGAR non-confirmation inside the window would invalidate the lead-time claim.",
+
+        f"Expected Catalyst — first related filing ({edgar.filings[0].form_type}) landed "
+        f"{edgar.lead_days} days after our signal fired on {edgar.signal_date}; the next "
+        f"earnings print is the settle-up event.",
+
+        "Bull Case / Bear Case — " + (
+            f"bull: the restock feeds a beat the Street hasn't modeled. "
+            f"bear: demand cools and inventory becomes a markdown risk."
+            if bullish else
+            f"bull: the pullback is transitory and mean-reverts. "
+            f"bear: soft supply and fading search foreshadow a miss."),
+
+        f"Recommendation — {rec}, {score.confidence} confidence. "
+        + (f"Physical evidence and demand align behind the call."
+           if not disagreeing else
+           "Conviction tempered by conflicting signals; size accordingly."),
     ]
+    return "\n\n".join(sections)
 
-    if imp.surge_detected:
-        parts.append(
-            f"Supply first: {imp.consignee} pulled in {imp.points[-1].containers} inbound "
-            f"containers in {imp.points[-1].month} from {imp.supplier} ({imp.origin_country}), "
-            f"{_pct(imp.surge_pct)} above baseline — inventory building ahead of a ramp."
-        )
-    else:
-        parts.append(
-            f"Customs imports for {imp.consignee} show no supply surge "
-            f"({_pct(imp.surge_pct) if imp.surge_pct is not None else 'flat'} vs. baseline), "
-            f"which caps conviction on the physical signal."
-        )
 
-    parts.append(
-        f"That shows up on the ground: satellite counts of {store['name']} ({store['ticker']}) "
-        f"went from {sat.before.car_count} cars on {sat.before.captured_at} to "
-        f"{sat.after.car_count} on {sat.after.captured_at} — {_pct(sat.count_change_pct)} "
-        f"vehicles in the lot."
-    )
-
-    if trends.spike_detected:
-        parts.append(
-            f'Demand confirms it: Google interest for "{trends.query}" ({trends.region}) '
-            f"spiked to {max(pt.interest for pt in trends.points)} around {trends.spike_date}."
-        )
-    else:
-        parts.append(
-            f'Google interest for "{trends.query}" shows no corroborating spike, '
-            f"so the read leans on the supply and activity signals."
-        )
-
-    parts.append(
-        f"The combined signal fired on {edgar.signal_date}; the first related filing "
-        f"({edgar.filings[0].form_type}) hit EDGAR {edgar.lead_days} days later — the "
-        f"market's first official confirmation of what the signals already showed."
-    )
-    return "\n\n".join(parts)
+def _dir_word(direction: int) -> str:
+    return "rising" if direction > 0 else "falling" if direction < 0 else "flat"
 
 
 def _call_gemini(prompt: str, api_key: str) -> str:

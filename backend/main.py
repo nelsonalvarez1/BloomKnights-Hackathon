@@ -16,7 +16,7 @@ from routes import (
 
 from schemas import Store
 
-app = FastAPI(title="Perigee API")
+app = FastAPI(title="Kaleidoscope API")
 
 allowed_origins = [
     origin.strip()
