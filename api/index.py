@@ -12,6 +12,17 @@ import sys
 # backend/ isn't a package from the repo root, so add it to the import path.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
+# Load backend/.env if present (local `vercel dev`); harmless in prod where
+# Vercel injects the dashboard env vars and no .env is deployed.
+try:
+    from pathlib import Path
+
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).resolve().parent.parent / "backend" / ".env")
+except Exception:
+    pass
+
 from database import init_db  # noqa: E402
 from main import app  # noqa: E402
 

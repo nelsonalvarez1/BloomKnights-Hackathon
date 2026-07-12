@@ -4,6 +4,7 @@ import {
   fetchEdgar,
   fetchImports,
   // fetchJets, // planes section disabled for now — see JetMap below
+  fetchPrice,
   fetchSatellite,
   fetchStores,
   fetchSupply,
@@ -42,6 +43,7 @@ export default function App() {
   // const [jets, setJets] = useState(null) // planes section disabled for now
   const [supply, setSupply] = useState(null)
   const [imports, setImports] = useState(null)
+  const [price, setPrice] = useState(null)
   const [edgar, setEdgar] = useState(null)
   const [paywallOpen, setPaywallOpen] = useState(false)
   const [loadError, setLoadError] = useState(null)
@@ -62,12 +64,14 @@ export default function App() {
     // setJets(null) // planes section disabled for now
     setSupply(null)
     setImports(null)
+    setPrice(null)
     setEdgar(null)
     fetchSatellite(storeId).then(setSatellite).catch(() => {})
     fetchTrends(storeId).then(setTrends).catch(() => {})
     // fetchJets(storeId).then(setJets).catch(() => {}) // planes section disabled for now
     fetchSupply(storeId).then(setSupply).catch(() => {})
     fetchImports(storeId).then(setImports).catch(() => {})
+    fetchPrice(storeId).then(setPrice).catch(() => {})
     fetchEdgar(storeId).then(setEdgar).catch(() => {})
   }, [storeId])
 
@@ -77,8 +81,8 @@ export default function App() {
   // store is known — degrades gracefully as individual signals arrive.
   const fusion = useMemo(() => {
     if (!store) return null
-    return computeFusion({ store, satellite, trends, supply, imports, edgar })
-  }, [store, satellite, trends, supply, imports, edgar])
+    return computeFusion({ store, satellite, trends, supply, imports, edgar, price })
+  }, [store, satellite, trends, supply, imports, edgar, price])
 
   return (
     <div className="app">

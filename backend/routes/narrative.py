@@ -90,26 +90,36 @@ def _build_payload(store_id: int) -> dict:
     if store is None:
         raise HTTPException(404, f"Unknown store {store_id}")
 
-    try:
-        supply = get_supply(store_id)
-    except HTTPException:
-        supply = None  # supply data is optional; the thesis still works without it
+    # Every signal is optional — a lite-tier name may only have satellite +
+    # EDGAR. Whatever is missing is None/empty and the thesis adapts, so the
+    # report NEVER hard-fails regardless of which company is selected.
+    def _try(fn):
+        try:
+            return fn(store_id)
+        except HTTPException:
+            return None
+
+    from schemas import TrendsResponse
+    trends = _try(get_trends) or TrendsResponse(
+        store_id=store_id, query="", region="", points=[], spike_detected=False,
+    )
 
     return {
         "store": dict(store),
-        "imports": get_imports(store_id),
-        "satellite": get_satellite(store_id),
-        "trends": get_trends(store_id),
-        "supply": supply,
-        "edgar": get_edgar(store_id),
+        "imports": _try(get_imports),
+        "satellite": _try(get_satellite),
+        "trends": trends,
+        "supply": _try(get_supply),
+        "edgar": _try(get_edgar),
     }
 
 
 def _score(p: dict):
+    sat = p["satellite"]
     return compute_activity_score(
         trends=p["trends"],
         imports=p["imports"],
-        satellite_count_change_pct=p["satellite"].count_change_pct,
+        satellite_count_change_pct=sat.count_change_pct if sat else None,
     )
 
 
@@ -182,38 +192,55 @@ def _fallback_thesis(p: dict) -> str:
         rec = "AVOID"
 
     combined = interpret_combined(score.import_signal, score.satellite_signal)
-    sat_move = _pct(sat.count_change_pct)
-    peak_interest = max(pt.interest for pt in trends.points) if trends.points else 0
 
-    supply_read = (
-        f"{imp.consignee} pulled {imp.points[-1].containers} inbound containers in "
-        f"{imp.points[-1].month} from {imp.supplier} ({imp.origin_country}), "
-        f"{_pct(imp.surge_pct) if imp.surge_pct is not None else 'flat'} vs. baseline"
-        + (" — a genuine restock ahead of a ramp." if imp.surge_detected
-           else " — supply is not confirming a ramp.")
-    )
-    activity_read = (
-        f"Satellite counts at {store['name']} moved {sat.before.car_count}→"
-        f"{sat.after.car_count} vehicles ({sat_move}) between {sat.before.captured_at} "
-        f"and {sat.after.captured_at}."
-    )
-    demand_read = (
-        f'Search interest for "{trends.query}" ({trends.region}) '
-        + (f"spiked to {peak_interest} around {trends.spike_date}, corroborating the move."
-           if trends.spike_detected
-           else f"peaked at {peak_interest} with no fresh spike, so demand only partially confirms.")
-    )
+    if imp is not None and imp.points:
+        supply_read = (
+            f"{imp.consignee} pulled {imp.points[-1].containers} inbound containers in "
+            f"{imp.points[-1].month} from {imp.supplier} ({imp.origin_country}), "
+            f"{_pct(imp.surge_pct) if imp.surge_pct is not None else 'flat'} vs. baseline"
+            + (" — a genuine restock ahead of a ramp." if imp.surge_detected
+               else " — supply is not confirming a ramp.")
+        )
+    else:
+        supply_read = (
+            "Customs import manifests are not tracked for this name, so the read "
+            "leans on physical activity and search demand."
+        )
+
+    if sat is not None:
+        activity_read = (
+            f"Satellite counts at {store['name']} moved {sat.before.car_count}→"
+            f"{sat.after.car_count} vehicles ({_pct(sat.count_change_pct)}) between "
+            f"{sat.before.captured_at} and {sat.after.captured_at}."
+        )
+    else:
+        activity_read = "No satellite coverage on this name yet."
+
+    if trends.points:
+        peak_interest = max(pt.interest for pt in trends.points)
+        demand_read = (
+            f'Search interest for "{trends.query}" ({trends.region}) '
+            + (f"spiked to {peak_interest} around {trends.spike_date}, corroborating the move."
+               if trends.spike_detected
+               else f"peaked at {peak_interest} with no fresh spike, so demand only partially confirms.")
+        )
+    else:
+        demand_read = "Search-demand data is unavailable for this name."
 
     # Contradiction check — do any signals disagree with the majority?
     dirs = [s.direction for s in (score.import_signal, score.satellite_signal, score.trend_signal) if s.direction]
     disagreeing = dirs and not (all(d > 0 for d in dirs) or all(d < 0 for d in dirs))
+
+    has_edgar = edgar is not None and edgar.filings
+    timing_clause = (f"~{edgar.lead_days} days before SEC confirmation"
+                     if has_edgar else "ahead of SEC confirmation")
 
     bullish = conv >= 0
     sections = [
         f"Investment Thesis — {rec} on {store['company']} ({store['ticker']}). "
         f"Fused activity score {score.score}/1.0 at {score.confidence} confidence; "
         f"{combined.lower()}. The edge is timing: the alt-data funnel resolved "
-        f"~{edgar.lead_days} days before SEC confirmation.",
+        f"{timing_clause}.",
 
         f"Evidence Summary — {supply_read} {activity_read} {demand_read}",
 
@@ -233,9 +260,11 @@ def _fallback_thesis(p: dict) -> str:
         "channel stuffing rather than sell-through, or if the satellite delta is "
         "seasonal. EDGAR non-confirmation inside the window would invalidate the lead-time claim.",
 
-        f"Expected Catalyst — first related filing ({edgar.filings[0].form_type}) landed "
-        f"{edgar.lead_days} days after our signal fired on {edgar.signal_date}; the next "
-        f"earnings print is the settle-up event.",
+        (f"Expected Catalyst — first related filing ({edgar.filings[0].form_type}) landed "
+         f"{edgar.lead_days} days after our signal fired on {edgar.signal_date}; the next "
+         f"earnings print is the settle-up event." if has_edgar else
+         "Expected Catalyst — the next SEC filing and earnings print are the "
+         "confirmation events to watch."),
 
         "Bull Case / Bear Case — " + (
             f"bull: the restock feeds a beat the Street hasn't modeled. "
@@ -271,20 +300,28 @@ def _call_gemini(prompt: str, api_key: str) -> str:
 def generate_narrative(req: NarrativeRequest):
     payload = _build_payload(req.store_id)
 
-    # Sources in funnel order; edgar always closes as the validation layer.
+    # Sources in funnel order; only cite the signals we actually have.
+    imp, sat, trends, supply, edgar = (
+        payload["imports"], payload["satellite"], payload["trends"],
+        payload["supply"], payload["edgar"],
+    )
     sources = []
-    if payload["imports"].points:
+    if imp is not None and imp.points:
         sources.append("imports")
-    sources.append("satellite")
-    if payload["trends"].points:
+    if sat is not None:
+        sources.append("satellite")
+    if trends.points:
         sources.append("trends")
-    if payload["supply"] is not None:
+    if supply is not None:
         sources.append("supply")
-    sources.append("edgar")  # validation layer — the thesis always closes on it
+    if edgar is not None:
+        sources.append("edgar")
 
+    # Gemini only when the funnel it narrates is present (imports + trends);
+    # otherwise the deterministic note handles the partial-signal case cleanly.
     api_key = os.environ.get("GEMINI_API_KEY")
     thesis = None
-    if api_key:
+    if api_key and imp is not None and imp.points and trends.points and edgar is not None:
         try:
             thesis = _call_gemini(_render_prompt(payload), api_key)
         except (httpx.HTTPError, KeyError, IndexError):

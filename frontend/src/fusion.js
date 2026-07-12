@@ -185,7 +185,7 @@ function confidenceModel({ imp, sat, trd, edgar, fleet }) {
 // 4. Master fusion — the whole intelligence object the dashboard renders
 // ----------------------------------------------------------------------------
 
-export function computeFusion({ store, satellite, trends, supply, imports, edgar }) {
+export function computeFusion({ store, satellite, trends, supply, imports, edgar, price }) {
   const imp = importSignal(imports)
   const sat = satelliteSignal(satellite)
   const trd = trendSignal(trends)
@@ -221,7 +221,12 @@ export function computeFusion({ store, satellite, trends, supply, imports, edgar
     d90: ret30 * 2.35,
   }
 
-  const current = priceFor(store?.ticker)
+  // Live current quote from Finnhub (/api/price) when available; the ticker
+  // anchor is only a fallback so targets still render if the quote is down.
+  const live = price && price.current ? price.current : null
+  const current = live ?? priceFor(store?.ticker)
+  const priceSource = live ? (price.source || 'live') : 'cached'
+  const dayChange = price?.percent_change ?? null
   const target30 = current * (1 + horizons.d30)
   const fairValue = current * (1 + horizons.d90 * 0.85)
   const bull = current * (1 + Math.abs(horizons.d90) * 1.4 * Math.sign(conviction || 1))
@@ -297,7 +302,7 @@ export function computeFusion({ store, satellite, trends, supply, imports, edgar
     conviction,
     recommendation: rec,
     horizons,
-    price: { current, target30, fairValue, bull, bear },
+    price: { current, target30, fairValue, bull, bear, source: priceSource, dayChange },
     revenue: { weekly: weeklyRev, quarterly: weeklyRev * 13, lift: revLift, epsSurprise },
     metrics,
     cascade,

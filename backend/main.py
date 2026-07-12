@@ -5,6 +5,19 @@ Run from the backend/ directory:  uvicorn main:app --reload
 
 import os
 
+# Load backend/.env into the environment BEFORE anything reads os.environ
+# (Turso, Finnhub, Gemini, SEC UA). No-op on Vercel, where the file is absent
+# and the dashboard env vars are used instead. Never crashes if dotenv or the
+# file is missing.
+try:
+    from pathlib import Path
+
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).resolve().parent / ".env")
+except Exception:
+    pass
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

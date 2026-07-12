@@ -970,6 +970,13 @@
   gap: 14px;
 }
 
+.live-inline {
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-size: 9px;
+  vertical-align: middle;
+}
+
 /* shared tone tokens for every fusion value */
 .tone-pos { color: var(--green); }
 .tone-neg { color: var(--red); }

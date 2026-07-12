@@ -83,7 +83,18 @@ export default function FusionCommand({ fusion, store }) {
       <ConfidenceRing pct={confidence.pct} band={confidence.band} tone={rec.tone} />
 
       <div className="fc-targets">
-        <TargetStat label="Current" value={price.current} tone="neutral" />
+        <div className="target-stat">
+          <span className="target-label">
+            Current
+            {price.source === 'live' && <span className="live-chip live-inline">Live</span>}
+          </span>
+          <span className="target-value tone-neutral">${price.current.toFixed(2)}</span>
+          {price.dayChange != null && (
+            <span className={`target-sub tone-${tone(price.dayChange)}`}>
+              {price.dayChange >= 0 ? '+' : ''}{price.dayChange.toFixed(2)}% today
+            </span>
+          )}
+        </div>
         <TargetStat
           label="30-Day Target" value={price.target30} tone={rec.tone}
           sub={pct1(horizons.d30)}

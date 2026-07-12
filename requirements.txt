@@ -5,3 +5,4 @@
 # For local dev, use backend/requirements.txt instead.
 fastapi
 httpx
+python-dotenv

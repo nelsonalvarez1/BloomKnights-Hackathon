@@ -27,6 +27,9 @@ export const fetchSupply = (storeId) =>
 export const fetchImports = (storeId) =>
   request(`/api/imports?store_id=${storeId}`)
 
+export const fetchPrice = (storeId) =>
+  request(`/api/price?store_id=${storeId}`)
+
 export const fetchEdgar = (storeId) => request(`/api/edgar?store_id=${storeId}`)
 
 export const generateNarrative = (storeId) =>
